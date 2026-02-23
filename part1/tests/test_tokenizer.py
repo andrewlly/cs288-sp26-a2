@@ -1,6 +1,9 @@
 import json
 import os
-import resource
+try:
+    import resource
+except ImportError:
+    resource = None
 import sys
 
 import psutil
@@ -17,6 +20,10 @@ MERGES_PATH = FIXTURES_PATH / "gpt2_merges.txt"
 def memory_limit(max_mem):
     def decorator(f):
         def wrapper(*args, **kwargs):
+            # If resource isn't available (e.g., on Windows), just run the function normally
+            if resource is None:
+                return f(*args, **kwargs)
+                
             process = psutil.Process(os.getpid())
             prev_limits = resource.getrlimit(resource.RLIMIT_AS)
             resource.setrlimit(resource.RLIMIT_AS, (process.memory_info().rss + max_mem, -1))
@@ -40,10 +47,10 @@ def get_tokenizer_from_vocab_merges_path(
     special_tokens: list[str] | None = None,
 ):
     gpt2_byte_decoder = {v: k for k, v in gpt2_bytes_to_unicode().items()}
-    with open(vocab_path) as vocab_f:
+    with open(vocab_path, encoding="utf-8") as vocab_f:
         gpt2_vocab = json.load(vocab_f)
     gpt2_bpe_merges = []
-    with open(merges_path) as f:
+    with open(merges_path, encoding="utf-8") as f:
         for line in f:
             cleaned_line = line.rstrip()
             if cleaned_line and len(cleaned_line.split(" ")) == 2:

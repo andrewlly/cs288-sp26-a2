@@ -193,6 +193,72 @@ def train_bpe(
         for i in range(2, len(special_bytes) + 1):
             forbidden_substrings.add(special_bytes[:i])
     
-    # TODO: Implement BPE training
     
-    raise NotImplementedError("Implement train_bpe")
+    vocab = {}
+    token_id = 0
+    
+    for special in special_tokens:
+        vocab[token_id] = special.encode("utf-8")
+        token_id += 1
+        
+    for b in range(256):
+        vocab[token_id] = bytes([b])
+        token_id += 1
+
+    word_freqs = Counter()
+    for pre_token in pre_tokenize(text, special_tokens):
+        temp = pre_token.encode("utf-8")
+        
+        flag = False
+
+        for sub in forbidden_substrings:
+            if sub in temp:
+                flag = True
+                break
+
+        if flag:
+            continue
+            
+        byte_list = []
+        for b in temp:
+            byte_list.append(bytes([b]))
+
+        w = tuple(byte_list)
+        word_freqs[w] += 1
+
+    pair_count = Counter()
+    for w, c in word_freqs.items():
+        for pair in get_pairs(w):
+            pair_count[pair] += c
+    merges = []
+    
+    while len(vocab) < vocab_size:
+        if not pair_count:
+            break
+            
+        most_p = max(pair_count.keys(), key=lambda p: (pair_count[p], p))
+        
+        first, second = most_p
+        new_token = first + second
+        vocab[token_id] = new_token
+        merges.append(most_p)
+        token_id += 1
+        
+        new_word_freq = Counter()
+        new_pair_count = Counter()
+        
+        for w, c in word_freqs.items():
+            if len(w) > 1 and most_p in get_pairs(w):
+                new_word = merge_word(w, most_p)
+            else:
+                new_word = w
+                
+            new_word_freq[new_word] += c
+            
+            for pair in get_pairs(new_word):
+                new_pair_count[pair] += c
+                
+        word_freqs = new_word_freq
+        pair_count = new_pair_count
+
+    return vocab, merges

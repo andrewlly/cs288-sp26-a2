@@ -81,10 +81,36 @@ class Tokenizer:
         if len(tokens) <= 1:
             return tokens
         
-        # TODO: Implement BPE algorithm
-        # Return tokens
-        
-        raise NotImplementedError("Implement _bpe")
+        while True:
+            pp = self._get_pairs(tokens)
+            if not pp:
+                break
+            
+            pair = []
+
+            for p in pp:
+                temp = p[0] + p[1]
+                if temp in self.inverse_vocab:
+                    v = self.inverse_vocab[temp]
+                    pair.append((p, v))
+                    
+            if not pair:
+                break
+
+            best_pair, _ = min(pair, key=lambda x: x[1])
+
+            t = []
+            i = 0
+            while i < len(tokens):
+                if i < len(tokens) - 1 and (tokens[i], tokens[i + 1]) == best_pair:
+                    t.append(tokens[i] + tokens[i + 1])
+                    i += 2
+                else:
+                    t.append(tokens[i])
+                    i += 1
+            tokens = t
+            
+        return tokens
 
     def _split_with_special_tokens(self, text: str) -> list[tuple[str, bool]]:
         """
@@ -139,9 +165,14 @@ class Tokenizer:
             return []
         
         ids = []
-        # TODO: Implement encoding
+        for match in self.pat.finditer(text):
+            pre = match.group()
+            tbyte = pre.encode("utf-8")
+            bpe = self._bpe(tbyte)
+            for id in bpe:
+                ids.append(self.inverse_vocab[id])
         
-        raise NotImplementedError("Implement _encode_chunk")
+        return ids
 
     def encode(self, text: str) -> list[int]:
         """
@@ -189,9 +220,13 @@ class Tokenizer:
         if not ids:
             return ""
         
-        # TODO: Implement decoding
-        
-        raise NotImplementedError("Implement decode")
+        byte_chunks = []
+        for id in ids:
+            if id in self.vocab:
+                byte_chunks.append(self.vocab[id])
+                
+        ans = b"".join(byte_chunks)
+        return ans.decode("utf-8", errors="replace")
 
     def encode_iterable(self, iterable: Iterator[str]) -> Iterator[int]:
         """
