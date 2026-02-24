@@ -23,6 +23,7 @@ import argparse
 import json
 import sys
 import torch
+import pickle
 from pathlib import Path
 
 # Add parent to path for imports
@@ -54,7 +55,7 @@ CONFIGS = {
         "num_layers": 4,
         "num_heads": 4,
         "d_ff": 512,
-        "context_length": 256,
+        "context_length": 512,
         "pretrain_epochs": 3,
         "finetune_epochs": 5,
         "batch_size": 32,
@@ -86,10 +87,10 @@ CONFIGS = {
         "num_layers": 8,
         "num_heads": 8,
         "d_ff": 2048,
-        "context_length": 512,
-        "pretrain_epochs": 5,
-        "finetune_epochs": 15,
-        "batch_size": 16,
+        "context_length": 1024,
+        "pretrain_epochs": 2,
+        "finetune_epochs": 5,
+        "batch_size": 4,
         "lr": 1e-4,
     }
 }
@@ -116,6 +117,17 @@ def train_tokenizer(pretrain_data: Path, vocab_size: int) -> tuple:
     
     special_tokens = ["<|endoftext|>", "<|pad|>"]
     
+    cache_path = Path(f"tokenizer_data_{vocab_size}.pkl")
+    
+    if cache_path.exists():
+        print(f"Found cached tokenizer at {cache_path}. Loading...")
+        with open(cache_path, "rb") as f:
+            vocab, merges = pickle.load(f)
+        
+        tokenizer = get_tokenizer(vocab, merges, special_tokens)
+        print(f"Loaded tokenizer with {len(vocab)} tokens.")
+        return tokenizer, vocab, merges
+    
     print(f"Input: {pretrain_data}")
     print(f"Vocab size: {vocab_size}")
     print(f"Special tokens: {special_tokens}")
@@ -126,6 +138,10 @@ def train_tokenizer(pretrain_data: Path, vocab_size: int) -> tuple:
         vocab_size=vocab_size,
         special_tokens=special_tokens,
     )
+    
+    print(f"Saving tokenizer to {cache_path}...")
+    with open(cache_path, "wb") as f:
+        pickle.dump((vocab, merges), f)
     
     # Create tokenizer
     tokenizer = get_tokenizer(vocab, merges, special_tokens)
@@ -215,6 +231,7 @@ def pretrain_lm(
         warmup_steps=min(100, len(dataloader) // 5),
         max_grad_norm=1.0,
         device=device,
+        use_amp=True,
         log_interval=max(1, len(dataloader) // 5),
     )
     
@@ -277,7 +294,7 @@ def evaluate_prompting(
     print(f"\nValidation examples: {len(dev_data)}")
     
     # Create pipeline
-    template = PromptTemplate(template_name="simple")
+    template = PromptTemplate(template_name="few_shot")
     pipeline = PromptingPipeline(
         model=model,
         tokenizer=tokenizer,
@@ -494,7 +511,23 @@ Examples:
     )
     
     # Step 2: Pretrain LM
-    pretrained_model = pretrain_lm(tokenizer, config, device)
+    model_path = Path("pretrained_medium.pt")
+    
+    if model_path.exists():
+        print(f"\nFound saved model at {model_path}. Loading...")
+        pretrained_model = TransformerLM(
+            vocab_size=len(tokenizer.vocab),
+            context_length=config["context_length"],
+            d_model=config["d_model"],
+            num_layers=config["num_layers"],
+            num_heads=config["num_heads"],
+            d_ff=config["d_ff"],
+        ).to(device)
+        pretrained_model.load_state_dict(torch.load(model_path))
+    else:
+        pretrained_model = pretrain_lm(tokenizer, config, device)
+        torch.save(pretrained_model.state_dict(), model_path)
+        print(f"Saved pretrained model to {model_path}")
     
     # Step 3: Fine-tune for QA
     qa_model = finetune_qa(pretrained_model, tokenizer, config, device)

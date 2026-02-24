@@ -12,6 +12,7 @@ from typing import Optional, Dict, Any, Callable
 from pathlib import Path
 import time
 import sys
+from tqdm import tqdm
 
 _parent = str(Path(__file__).parent.parent)
 if _parent not in sys.path:
@@ -67,7 +68,8 @@ class Trainer:
         self.model.train()
         total_loss = 0.0
         num_batches = 0
-        for batch in self.train_dataloader:
+        pbar = tqdm(self.train_dataloader, desc=f"Epoch", unit="batch")
+        for batch in pbar:
             self.optimizer.zero_grad()
             loss = self.compute_loss_fn(batch, self.model)
             loss.backward()
@@ -77,6 +79,8 @@ class Trainer:
             total_loss += loss.item()
             num_batches += 1
             self.global_step += 1
+            pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+            
         return total_loss / num_batches if num_batches > 0 else 0.0
     
     @torch.no_grad()

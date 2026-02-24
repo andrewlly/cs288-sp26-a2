@@ -20,6 +20,41 @@ class PromptTemplate:
         "basic": "Context: {context}\n\nQuestion: {question}\n\nChoices:\n{choices_formatted}\n\nAnswer:",
         "instruction": "Read the following passage and answer the question.\n\nPassage: {context}\n\nQuestion: {question}\n\n{choices_formatted}\n\nSelect the letter:",
         "simple": "{context}\n{question}\n{choices_formatted}\nThe answer is",
+        
+        "few_shot": (
+            "Context: Once there was a little girl named Lily. She had a shiny red ball. She threw it over the fence and it got lost in the bushes.\n"
+            "Question: Where did the ball go?\n"
+            "Choices:\n"
+            "A. In the house\n"
+            "B. In the bushes\n"
+            "C. In the car\n"
+            "D. Under the bed\n"
+            "Answer: B\n\n"
+            
+            "Context: Tom wanted to eat a cookie. He climbed on a chair to reach the jar. But the jar fell down and broke. Tom was scared.\n"
+            "Question: Why was Tom scared?\n"
+            "Choices:\n"
+            "A. He saw a ghost\n"
+            "B. He was hungry\n"
+            "C. The jar broke\n"
+            "D. It was dark\n"
+            "Answer: C\n\n"
+
+            "Context: The dog saw a cat in the garden. The dog barked loudly and ran after the cat. The cat climbed up the tree to be safe.\n"
+            "Question: What did the cat climb?\n"
+            "Choices:\n"
+            "A. A tree\n"
+            "B. A fence\n"
+            "C. A ladder\n"
+            "D. A mountain\n"
+            "Answer: A\n\n"
+            
+            "Context: {context}\n"
+            "Question: {question}\n"
+            "Choices:\n"
+            "{choices_formatted}\n"
+            "Answer:"
+        )
     }
     
     def __init__(self, template_name: str = "basic", custom_template: Optional[str] = None, choice_format: str = "letter"):
